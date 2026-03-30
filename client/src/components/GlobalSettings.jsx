@@ -48,6 +48,8 @@ export default function GlobalSettings({ onClose }) {
 
   const inputCls = 'w-full px-4 py-3 rounded-2xl bg-[hsl(var(--muted))/0.5] dark:bg-white/8 border border-[hsl(var(--border))] dark:border-white/15 text-[13px] text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))/0.5] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent))/0.3] focus:border-[hsl(var(--accent))] transition-all duration-300 font-mono'
   const labelCls = 'block text-[11px] font-bold text-[hsl(var(--muted-foreground))] dark:text-white/60 mb-2 ml-1 uppercase tracking-widest'
+  const codexDirDisplay = info?.codexDirDisplay || info?.codexDir || '~/.codex'
+  const configFileDisplay = info?.configFileDisplay || `${codexDirDisplay}/config.toml`
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 animate-apple-fade-in">
@@ -78,7 +80,7 @@ export default function GlobalSettings({ onClose }) {
               <div className="p-4 rounded-2xl text-[11px] space-y-2 animate-apple-fade-in bg-[hsl(var(--muted))/0.6] dark:bg-white/6 border border-[hsl(var(--border))] dark:border-white/10">
                 <div className="flex items-center justify-between">
                   <span className="text-[hsl(var(--muted-foreground))] font-bold uppercase tracking-widest text-[10px]">配置目录</span>
-                  <code className="text-[hsl(var(--foreground))] font-mono opacity-70 text-[11px] max-w-[200px] truncate">{info.codexDir}</code>
+                  <code className="text-[hsl(var(--foreground))] font-mono opacity-70 text-[11px] max-w-[200px] truncate">{codexDirDisplay}</code>
                 </div>
                 <div className="h-px bg-[hsl(var(--border))]" />
                 <div className="flex items-center justify-between">
@@ -140,7 +142,7 @@ export default function GlobalSettings({ onClose }) {
           {/* Footer */}
           <div className="flex items-center justify-between px-8 py-5 border-t border-[hsl(var(--border))] dark:border-white/10 bg-[hsl(var(--muted))/0.3] dark:bg-white/3">
             <p className="text-[10px] text-[hsl(var(--muted-foreground))] opacity-50 font-mono">
-              ~/.codex/config.toml
+              {configFileDisplay}
             </p>
             <div className="flex items-center gap-3">
               <button type="button" onClick={onClose}
@@ -170,4 +172,3 @@ export default function GlobalSettings({ onClose }) {
     </div>
   )
 }
-

@@ -53,7 +53,7 @@ export default function App() {
       setActiveAgent(configData.activeAgent)
       if (infoRes.ok) {
         const infoData = await infoRes.json()
-        setCodexDir(infoData.codexDir || '~/.codex')
+        setCodexDir(infoData.codexDirDisplay || infoData.codexDir || '~/.codex')
       }
     } catch {
       setError('无法连接到后端服务，请确认 server.js 正在运行（默认 :3737）')

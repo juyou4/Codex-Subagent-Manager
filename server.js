@@ -105,6 +105,16 @@ function ensureCodexDir() {
   }
 }
 
+function toDisplayPath(targetPath) {
+  const homeDir = os.homedir();
+  if (!targetPath) return targetPath;
+  if (targetPath === homeDir) return '~';
+  if (targetPath.startsWith(homeDir + path.sep)) {
+    return `~${targetPath.slice(homeDir.length).replace(/\\/g, '/')}`;
+  }
+  return targetPath.replace(/\\/g, '/');
+}
+
 function ensureAgentsDir() {
   ensureCodexDir();
   if (!fs.existsSync(AGENTS_DIR)) {
@@ -483,7 +493,13 @@ app.put('/api/config/agents', (req, res) => {
 
 // GET /api/info — 返回服务器环境信息
 app.get('/api/info', (req, res) => {
-  res.json({ codexDir: CODEX_DIR, port: PORT, platform: process.platform });
+  res.json({
+    codexDir: CODEX_DIR,
+    codexDirDisplay: toDisplayPath(CODEX_DIR),
+    configFileDisplay: `${toDisplayPath(CODEX_DIR)}/config.toml`,
+    port: PORT,
+    platform: process.platform,
+  });
 });
 
 // SPA fallback — 生产模式下所有未匹配路由返回 index.html
