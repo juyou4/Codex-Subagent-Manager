@@ -115,6 +115,7 @@ function parseMcpServers(raw) {
   return Object.entries(raw).map(([name, val]) => {
     const source = val && typeof val === 'object' ? val : {}
     const {
+      transport: explicitTransport = '',
       url = '',
       command = '',
       args,
@@ -128,7 +129,7 @@ function parseMcpServers(raw) {
     return {
       original_name: name,
       name,
-      transport: url ? 'http' : 'stdio',
+      transport: url ? 'http' : (command ? 'stdio' : (explicitTransport === 'http' ? 'http' : 'stdio')),
       url,
       command,
       args_text: formatArgs(args),
@@ -389,7 +390,7 @@ export default function AgentEditor({ agent, onSave, onClose, codexDir = '~/.cod
                 <div>
                   <label className={labelCls + ' mb-0'}>mcp_servers</label>
                   <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-2">
-                    支持 HTTP 与 stdio 常用字段；未展示的高级键会在保存时保留。
+                    支持 Streamable HTTP 与 stdio 常用字段；未展示的高级键会在保存时保留。
                   </p>
                 </div>
                 <button type="button" onClick={addMcpServer}
@@ -420,7 +421,7 @@ export default function AgentEditor({ agent, onSave, onClose, codexDir = '~/.cod
                               value={s.transport}
                               onChange={v => updateMcpServer(i, 'transport', v)}
                               options={[
-                                { value: 'http', label: 'HTTP' },
+                                { value: 'http', label: 'Streamable HTTP' },
                                 { value: 'stdio', label: 'stdio' },
                               ]}
                               placeholder="transport"

@@ -35,7 +35,7 @@ Codex Subagent Manager 的目标就是把这些操作变成一个本地页面，
 - 支持加载项目级 agent：`<project>/.codex/agents/*.toml`
 - 支持编辑常用字段：
   `model`、`model_provider`、`model_reasoning_effort`、`sandbox_mode`、`nickname_candidates`、`mcp_servers`
-- 支持 HTTP / stdio 两类常见 MCP server 配置
+- 支持 Streamable HTTP / stdio 两类常见 MCP server 配置
 - 编辑已有 agent 时保留未展示的高级字段，例如 `skills.config` 或更完整的 `mcp_servers` 配置
 - 可视化编辑全局默认模型配置：
   `model`、`model_provider`、`model_reasoning_effort`

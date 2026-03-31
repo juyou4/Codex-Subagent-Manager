@@ -1,5 +1,22 @@
 import React, { useState, useEffect } from 'react'
 
+async function readJsonResponse(response, label) {
+  const contentType = response.headers.get('content-type') || ''
+  const isJson = contentType.includes('application/json')
+  const payload = isJson ? await response.json() : null
+
+  if (!response.ok) {
+    const message = payload?.error || `${label} 请求失败（${response.status}）`
+    throw new Error(message)
+  }
+
+  if (!isJson) {
+    throw new Error(`${label} 返回了非 JSON 响应`)
+  }
+
+  return payload
+}
+
 export default function GlobalSettings({ onClose }) {
   const [form, setForm] = useState({
     model: '',
@@ -17,22 +34,57 @@ export default function GlobalSettings({ onClose }) {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/config').then(r => r.json()),
-      fetch('/api/config/agents').then(r => r.json()),
-      fetch('/api/info').then(r => r.json()),
-    ]).then(([configData, agentsCfg, serverInfo]) => {
-      setForm({
-        model: configData.model ?? '',
-        model_provider: configData.model_provider ?? '',
-        model_reasoning_effort: configData.model_reasoning_effort ?? '',
-        max_threads: agentsCfg.max_threads ?? '',
-        max_depth: agentsCfg.max_depth ?? '',
-        job_max_runtime_seconds: agentsCfg.job_max_runtime_seconds ?? '',
-      })
-      setLegacyAgent(configData.legacyAgent ?? null)
-      setInfo(serverInfo)
-    }).catch(() => setError('加载配置失败'))
+    let cancelled = false
+
+    async function loadSettings() {
+      setError('')
+
+      const results = await Promise.allSettled([
+        fetch('/api/config').then(r => readJsonResponse(r, '全局模型配置')),
+        fetch('/api/config/agents').then(r => readJsonResponse(r, 'agents 配置')),
+        fetch('/api/info').then(r => readJsonResponse(r, '环境信息')),
+      ])
+
+      if (cancelled) return
+
+      const [configResult, agentsResult, infoResult] = results
+      const errors = results
+        .filter(result => result.status === 'rejected')
+        .map(result => result.reason?.message || '未知错误')
+
+      if (configResult.status === 'fulfilled' || agentsResult.status === 'fulfilled') {
+        const configData = configResult.status === 'fulfilled' ? configResult.value : {}
+        const agentsCfg = agentsResult.status === 'fulfilled' ? agentsResult.value : {}
+
+        setForm({
+          model: configData.model ?? '',
+          model_provider: configData.model_provider ?? '',
+          model_reasoning_effort: configData.model_reasoning_effort ?? '',
+          max_threads: agentsCfg.max_threads ?? '',
+          max_depth: agentsCfg.max_depth ?? '',
+          job_max_runtime_seconds: agentsCfg.job_max_runtime_seconds ?? '',
+        })
+        setLegacyAgent(configData.legacyAgent ?? null)
+      }
+
+      if (infoResult.status === 'fulfilled') {
+        setInfo(infoResult.value)
+      }
+
+      if (errors.length > 0) {
+        setError(`加载配置失败：${errors.join('；')}`)
+      }
+    }
+
+    loadSettings().catch((err) => {
+      if (!cancelled) {
+        setError(err.message || '加载配置失败')
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const handleChange = (field, value) => {

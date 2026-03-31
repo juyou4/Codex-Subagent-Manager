@@ -185,6 +185,12 @@ function isBlankString(value) {
   return typeof value === 'string' && value.trim() === '';
 }
 
+function toTrimmedStringOrNull(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
 function cleanConfigValue(value) {
   if (value === undefined || value === null) return undefined;
   if (typeof value === 'string') return isBlankString(value) ? undefined : value;
@@ -253,17 +259,20 @@ function normalizeMcpServers(existingValue, payload) {
   const normalized = {};
 
   for (const item of payload) {
-    if (!item || isBlankString(item.name)) continue;
+    if (!item) continue;
 
-    const nextName = item.name.trim();
-    const originalName = !isBlankString(item.original_name) ? item.original_name.trim() : nextName;
+    const nextName = toTrimmedStringOrNull(item.name);
+    if (!nextName) continue;
+
+    const originalName = toTrimmedStringOrNull(item.original_name) || nextName;
     const baseConfig = existingServers[originalName] && typeof existingServers[originalName] === 'object'
       ? cloneValue(existingServers[originalName])
       : {};
     const mergedConfig = { ...baseConfig };
+    delete mergedConfig.transport;
 
     for (const [key, rawValue] of Object.entries(item)) {
-      if (key === 'name' || key === 'original_name') continue;
+      if (key === 'name' || key === 'original_name' || key === 'transport') continue;
       const cleanedValue = cleanConfigValue(rawValue);
       if (cleanedValue === undefined) {
         delete mergedConfig[key];
