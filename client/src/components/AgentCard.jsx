@@ -36,9 +36,9 @@ function CopyButton({ text, label = '复制名称', title = '复制名称' }) {
 
 export default function AgentCard({ agent, onEdit, onDelete, onReset, onApply, globalConfig, isApplied = false }) {
   const [expanded, setExpanded] = useState(false)
-  const targetModel = agent.model || agent.effective_model || ''
-  const targetProvider = agent.model_provider || agent.effective_model_provider || ''
-  const targetReasoning = agent.model_reasoning_effort || agent.effective_model_reasoning_effort || globalConfig?.model_reasoning_effort || ''
+  const targetModel = agent.effective_model || agent.model || ''
+  const targetProvider = agent.effective_model_provider || agent.model_provider || ''
+  const targetReasoning = agent.effective_model_reasoning_effort || agent.model_reasoning_effort || globalConfig?.model_reasoning_effort || ''
   const canApply = !!(targetModel || targetProvider || targetReasoning)
   const modelSummary = [agent.effective_model_provider || agent.model_provider, agent.effective_model || agent.model]
     .filter(Boolean)

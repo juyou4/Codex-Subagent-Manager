@@ -313,6 +313,47 @@ function setOptionalConfigValue(target, key, value) {
   }
 }
 
+function getConfiguredModelProviderNames(globalConfig = {}) {
+  const providers = globalConfig?.model_providers;
+  if (!providers || typeof providers !== 'object' || Array.isArray(providers)) {
+    return new Set();
+  }
+
+  return new Set(
+    Object.keys(providers)
+      .map((name) => toTrimmedStringOrNull(name))
+      .filter(Boolean),
+  );
+}
+
+function isKnownModelProvider(provider, globalConfig = {}) {
+  const normalizedProvider = toTrimmedStringOrNull(provider);
+  if (!normalizedProvider) return false;
+
+  const configuredProviders = getConfiguredModelProviderNames(globalConfig);
+  if (configuredProviders.size === 0) return true;
+  if (configuredProviders.has(normalizedProvider)) return true;
+
+  return normalizedProvider === toTrimmedStringOrNull(globalConfig.model_provider);
+}
+
+function normalizeAgentModelProvider(agent, globalConfig = {}) {
+  const agentName = toTrimmedStringOrNull(agent?.name);
+  const normalizedProvider = toTrimmedStringOrNull(agent?.model_provider);
+  if (!agentName || !normalizedProvider) {
+    return { modelProvider: null, staleModelProvider: null };
+  }
+
+  if (isKnownModelProvider(normalizedProvider, globalConfig)) {
+    return { modelProvider: normalizedProvider, staleModelProvider: null };
+  }
+
+  return {
+    modelProvider: null,
+    staleModelProvider: normalizedProvider,
+  };
+}
+
 function getBuiltinAgentBase(name) {
   const builtin = BUILTIN_AGENT_MAP.get(name);
   if (!builtin) return null;
@@ -447,17 +488,40 @@ function mergeAgentData(baseAgent, body) {
   return data;
 }
 
+function getPersistedAgentData(agent = {}) {
+  const persisted = {};
+  for (const [key, value] of Object.entries(agent)) {
+    if (key === 'builtin' || key === 'overridden' || key === 'icon' || key === 'color') continue;
+    if (key.startsWith('_')) continue;
+    if (key.startsWith('effective_')) continue;
+    persisted[key] = cloneValue(value);
+  }
+  return persisted;
+}
+
+function cleanupLegacyBuiltinAgentModelProvider(agent, globalConfig = {}) {
+  const { staleModelProvider } = normalizeAgentModelProvider(agent, globalConfig);
+  if (!staleModelProvider) return agent;
+  if (!BUILTIN_AGENT_NAMES.has(toTrimmedStringOrNull(agent?.name))) return agent;
+
+  const cleanedAgent = cloneValue(agent);
+  delete cleanedAgent.model_provider;
+  return cleanedAgent;
+}
+
 // 为展示层补齐 agent 实际生效的模型配置：优先 agent，自身没有时回退到全局 config.toml
 function withEffectiveAgentConfig(agent, globalConfig = {}) {
   const hasAgentModel = pickNonBlankValue(agent.model) !== undefined;
-  const hasAgentModelProvider = pickNonBlankValue(agent.model_provider) !== undefined;
+  const normalizedAgent = cleanupLegacyBuiltinAgentModelProvider(agent, globalConfig);
+  const normalizedModelProvider = pickNonBlankValue(normalizeAgentModelProvider(agent, globalConfig).modelProvider);
+  const hasAgentModelProvider = normalizedModelProvider !== undefined;
   const hasAgentReasoningEffort = pickNonBlankValue(agent.model_reasoning_effort) !== undefined;
-  const effectiveModel = pickNonBlankValue(agent.model, globalConfig.model);
-  const effectiveModelProvider = pickNonBlankValue(agent.model_provider, globalConfig.model_provider);
+  const effectiveModel = pickNonBlankValue(normalizedAgent.model, globalConfig.model);
+  const effectiveModelProvider = pickNonBlankValue(normalizedModelProvider, globalConfig.model_provider);
   const effectiveModelReasoningEffort = pickNonBlankValue(agent.model_reasoning_effort, globalConfig.model_reasoning_effort);
 
   return {
-    ...agent,
+    ...normalizedAgent,
     effective_model: effectiveModel ?? null,
     effective_model_provider: effectiveModelProvider ?? null,
     effective_model_reasoning_effort: effectiveModelReasoningEffort ?? null,
@@ -470,7 +534,23 @@ function withEffectiveAgentConfig(agent, globalConfig = {}) {
 // GET /api/agents — 返回内置 + 自定义 agents；?project=<dir> 追加项目级 agents
 app.get('/api/agents', (req, res) => {
   const config = readConfig();
-  const custom = loadCustomAgents();
+  const custom = loadCustomAgents().map((agent) => {
+    const cleanedAgent = cleanupLegacyBuiltinAgentModelProvider(agent, config);
+    if (!BUILTIN_AGENT_NAMES.has(cleanedAgent.name) || cleanedAgent.model_provider === agent.model_provider) {
+      return cleanedAgent;
+    }
+
+    const targetFile = agent._file ? path.join(AGENTS_DIR, agent._file) : null;
+    if (targetFile) {
+      try {
+        fs.writeFileSync(targetFile, TOML.stringify(getPersistedAgentData(cleanedAgent)), 'utf8');
+      } catch (err) {
+        console.warn(`Failed to clean legacy model_provider for built-in agent "${cleanedAgent.name}": ${err.message}`);
+      }
+    }
+
+    return cleanedAgent;
+  });
   const customByName = new Map(custom.map((agent) => [agent.name, agent]));
   const builtins = BUILTIN_AGENTS.map((builtin) => {
     const override = customByName.get(builtin.name);
