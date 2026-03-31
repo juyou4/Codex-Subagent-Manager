@@ -576,7 +576,7 @@ if (fs.existsSync(DIST_DIR)) {
 }
 
 app.listen(PORT, () => {
-  console.log(`Codex Agent Switcher running at ${APP_URL}`);
+  console.log(`Codex Subagent Manager running at ${APP_URL}`);
   console.log(`Codex config dir: ${CODEX_DIR}`);
   if (fs.existsSync(DIST_DIR)) {
     console.log('Mode: production (serving built frontend)');

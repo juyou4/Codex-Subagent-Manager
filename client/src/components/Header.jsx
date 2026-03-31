@@ -25,7 +25,7 @@ export default function Header({ defaultModelSummary, onRefresh, loading, onSett
             </div>
             <div className="flex flex-col">
               <h1 className="text-[13px] font-bold tracking-tight text-[hsl(var(--foreground))] group-hover:text-[hsl(var(--accent))] transition-colors duration-300 leading-none">
-                Codex Agent Switcher
+                Codex Subagent Manager
               </h1>
               <p className="font-mono text-[10px] opacity-50 mt-0.5">
                 {codexDir}
@@ -98,4 +98,3 @@ export default function Header({ defaultModelSummary, onRefresh, loading, onSett
     </header>
   )
 }
-
