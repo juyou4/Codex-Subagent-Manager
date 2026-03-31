@@ -17,6 +17,7 @@ const CODEX_DIR = process.env.CODEX_DIR
   : path.join(os.homedir(), '.codex');
 const CONFIG_FILE = path.join(CODEX_DIR, 'config.toml');
 const AGENTS_DIR = path.join(CODEX_DIR, 'agents');
+const APP_STATE_FILE = path.join(CODEX_DIR, 'codex-subagent-manager-state.json');
 
 app.use(cors());
 app.use(express.json());
@@ -145,6 +146,90 @@ function ensureAgentsDir() {
   if (!fs.existsSync(AGENTS_DIR)) {
     fs.mkdirSync(AGENTS_DIR, { recursive: true });
   }
+}
+
+function readAppState() {
+  if (!fs.existsSync(APP_STATE_FILE)) return {};
+  try {
+    const parsed = JSON.parse(readTextFile(APP_STATE_FILE));
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (err) {
+    console.warn(`Failed to parse app state file "${APP_STATE_FILE}": ${err.message}`);
+    return {};
+  }
+}
+
+function extractModelConfigSnapshot(source = {}) {
+  return {
+    model: toTrimmedStringOrNull(source.model),
+    model_provider: toTrimmedStringOrNull(source.model_provider),
+    model_reasoning_effort: toTrimmedStringOrNull(source.model_reasoning_effort),
+  };
+}
+
+function modelConfigSnapshotsMatch(left = {}, right = {}) {
+  const normalizedLeft = extractModelConfigSnapshot(left);
+  const normalizedRight = extractModelConfigSnapshot(right);
+  return normalizedLeft.model === normalizedRight.model
+    && normalizedLeft.model_provider === normalizedRight.model_provider
+    && normalizedLeft.model_reasoning_effort === normalizedRight.model_reasoning_effort;
+}
+
+function writeAppState(state) {
+  ensureCodexDir();
+  const appliedPresetId = toTrimmedStringOrNull(state?.appliedPresetId);
+  if (!appliedPresetId) {
+    if (fs.existsSync(APP_STATE_FILE)) {
+      fs.unlinkSync(APP_STATE_FILE);
+    }
+    return;
+  }
+
+  fs.writeFileSync(APP_STATE_FILE, JSON.stringify({
+    appliedPresetId,
+    appliedModelConfig: extractModelConfigSnapshot(state?.appliedModelConfig),
+  }, null, 2), 'utf8');
+}
+
+function updateAppliedPresetState(nextState = {}) {
+  writeAppState({ ...readAppState(), ...nextState });
+  return readAppState();
+}
+
+function getPresetIdForAgentName(name, { builtin = false, projectDir = null } = {}) {
+  if (projectDir) {
+    return `project:${path.resolve(projectDir)}:${name}`;
+  }
+  return `${builtin ? 'builtin' : 'custom'}:${name}`;
+}
+
+function getEffectiveModelConfigSnapshot(agent, globalConfig = {}) {
+  const effectiveAgent = withEffectiveAgentConfig(agent, globalConfig);
+  return extractModelConfigSnapshot({
+    model: effectiveAgent.effective_model,
+    model_provider: effectiveAgent.effective_model_provider,
+    model_reasoning_effort: effectiveAgent.effective_model_reasoning_effort,
+  });
+}
+
+function syncAppliedPresetForAgent(agent, presetId, globalConfig = readConfig()) {
+  const appState = readAppState();
+  if (appState.appliedPresetId !== presetId) return;
+
+  const nextSnapshot = getEffectiveModelConfigSnapshot(agent, globalConfig);
+  if (!modelConfigSnapshotsMatch(appState.appliedModelConfig, nextSnapshot)) {
+    writeAppState({});
+  }
+}
+
+function getAppliedPresetId(config = {}) {
+  const appState = readAppState();
+  if (!toTrimmedStringOrNull(appState.appliedPresetId)) return null;
+  if (!modelConfigSnapshotsMatch(appState.appliedModelConfig, config)) {
+    writeAppState({});
+    return null;
+  }
+  return appState.appliedPresetId;
 }
 
 function stripBom(content) {
@@ -317,12 +402,13 @@ function loadCustomAgents() {
 }
 
 function loadProjectAgents(projectDir) {
-  const dir = path.join(path.resolve(projectDir), '.codex', 'agents');
+  const resolvedProjectDir = path.resolve(projectDir);
+  const dir = path.join(resolvedProjectDir, '.codex', 'agents');
   const agents = [];
   if (!fs.existsSync(dir)) return agents;
   for (const file of listTomlFiles(dir)) {
     const parsed = tryParseTomlFile(path.join(dir, file));
-    if (parsed) agents.push({ ...parsed, builtin: false, _file: file, _scope: 'project', _projectDir: projectDir });
+    if (parsed) agents.push({ ...parsed, builtin: false, _file: file, _scope: 'project', _projectDir: resolvedProjectDir });
   }
   return agents;
 }
@@ -365,15 +451,19 @@ function mergeAgentData(baseAgent, body) {
 function withEffectiveAgentConfig(agent, globalConfig = {}) {
   const hasAgentModel = pickNonBlankValue(agent.model) !== undefined;
   const hasAgentModelProvider = pickNonBlankValue(agent.model_provider) !== undefined;
+  const hasAgentReasoningEffort = pickNonBlankValue(agent.model_reasoning_effort) !== undefined;
   const effectiveModel = pickNonBlankValue(agent.model, globalConfig.model);
   const effectiveModelProvider = pickNonBlankValue(agent.model_provider, globalConfig.model_provider);
+  const effectiveModelReasoningEffort = pickNonBlankValue(agent.model_reasoning_effort, globalConfig.model_reasoning_effort);
 
   return {
     ...agent,
     effective_model: effectiveModel ?? null,
     effective_model_provider: effectiveModelProvider ?? null,
+    effective_model_reasoning_effort: effectiveModelReasoningEffort ?? null,
     effective_model_source: hasAgentModel ? 'agent' : effectiveModel ? 'global' : null,
     effective_model_provider_source: hasAgentModelProvider ? 'agent' : effectiveModelProvider ? 'global' : null,
+    effective_model_reasoning_effort_source: hasAgentReasoningEffort ? 'agent' : effectiveModelReasoningEffort ? 'global' : null,
   };
 }
 
@@ -416,13 +506,14 @@ app.get('/api/config', (req, res) => {
     model: config.model || null,
     model_provider: config.model_provider || null,
     model_reasoning_effort: config.model_reasoning_effort || null,
+    appliedPresetId: getAppliedPresetId(config),
     raw: config,
   });
 });
 
 // PUT /api/config/default-model — 更新全局默认模型配置（作用于新会话）
 app.put('/api/config/default-model', (req, res) => {
-  const { model, model_provider, model_reasoning_effort } = req.body;
+  const { model, model_provider, model_reasoning_effort, appliedPresetId } = req.body;
   const config = readConfig();
 
   setOptionalConfigValue(config, 'model', model);
@@ -431,11 +522,20 @@ app.put('/api/config/default-model', (req, res) => {
 
   try {
     writeConfig(config);
+    if (Object.prototype.hasOwnProperty.call(req.body, 'appliedPresetId')) {
+      updateAppliedPresetState({
+        appliedPresetId,
+        appliedModelConfig: extractModelConfigSnapshot(config),
+      });
+    } else {
+      updateAppliedPresetState({ appliedPresetId: null, appliedModelConfig: null });
+    }
     res.json({
       ok: true,
       model: config.model || null,
       model_provider: config.model_provider || null,
       model_reasoning_effort: config.model_reasoning_effort || null,
+      appliedPresetId: getAppliedPresetId(config),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -477,6 +577,7 @@ app.post('/api/agents', (req, res) => {
 // PUT /api/agents/:name — 更新 agent（若文件不存在则新建，用于内置 agent 首次覆盖；支持全字段）
 app.put('/api/agents/:name', (req, res) => {
   const { name } = req.params;
+  const isBuiltin = BUILTIN_AGENT_NAMES.has(name);
   ensureAgentsDir();
   let targetFile = findAgentFileByName(AGENTS_DIR, name);
   if (!targetFile) targetFile = `${name.replace(/[^a-z0-9_-]/gi, '-')}.toml`;
@@ -490,6 +591,7 @@ app.put('/api/agents/:name', (req, res) => {
     : (getBuiltinAgentBase(name) || {});
   const agentData = mergeAgentData(existingAgent, { ...req.body, name });
   fs.writeFileSync(path.join(AGENTS_DIR, targetFile), TOML.stringify(agentData), 'utf8');
+  syncAppliedPresetForAgent(agentData, getPresetIdForAgentName(name, { builtin: isBuiltin }));
   res.json({ ok: true });
 });
 
@@ -500,6 +602,9 @@ app.delete('/api/agents/:name', (req, res) => {
   const targetFile = findAgentFileByName(AGENTS_DIR, name);
   if (!targetFile) return res.status(404).json({ error: `Agent "${name}" not found` });
   fs.unlinkSync(path.join(AGENTS_DIR, targetFile));
+  if (readAppState().appliedPresetId === `custom:${name}`) {
+    writeAppState({});
+  }
   res.json({ ok: true });
 });
 
@@ -515,6 +620,8 @@ app.post('/api/agents/:name/reset', (req, res) => {
     fs.unlinkSync(path.join(AGENTS_DIR, targetFile));
     deleted = true;
   }
+  const builtinBase = getBuiltinAgentBase(name) || { name };
+  syncAppliedPresetForAgent(builtinBase, getPresetIdForAgentName(name, { builtin: true }));
   res.json({ ok: true, deleted });
 });
 

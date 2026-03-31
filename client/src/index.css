@@ -2,46 +2,54 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: 0 0% 100%;
-  --foreground: 0 0% 9%;
-  --muted: 0 0% 96%;
-  --muted-foreground: 0 0% 45%;
-  --accent: 211 100% 50%;
-  --accent-foreground: 0 0% 100%;
-  --border: 0 0% 91%;
-  --ring: 211 100% 50%;
-  --radius: 12px;
-  --radius-md: 16px;
-  --radius-lg: 24px;
-  --radius-xl: 28px;
-
-  /* 8px Grid System */
-  --space-xs: 4px;
-  --space-sm: 8px;
-  --space-md: 16px;
-  --space-lg: 24px;
-  --space-xl: 32px;
-  --space-2xl: 48px;
-  --space-3xl: 64px;
-  --space-4xl: 96px;
-
-  /* Apple Easing */
-  --ease-in-out: cubic-bezier(0.4, 0.0, 0.2, 1);
-  --ease-out: cubic-bezier(0.0, 0.0, 0.2, 1);
-  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.dark {
-  --background: 0 0% 8%;
-  --foreground: 0 0% 95%;
-  --muted: 0 0% 12%;
-  --muted-foreground: 0 0% 70%;
-  --accent: 211 100% 65%;
-  --border: 0 0% 20%;
-}
-
 @layer base {
+  :root {
+    /* 核心基础色彩 - Apple SF 灰度系统 */
+    --background: 0 0% 96%;         /* 极浅灰 - 网页主背景画布 (苹果风背板) */
+    --card-bg: 0 0% 100%;           /* 纯白 - 独立卡片内容区 */
+    --foreground: 0 0% 9%;          /* 深炭灰 - 最佳可读性 */
+    --muted: 0 0% 92%;              /* 超浅灰 - 微妙背景 */
+    --muted-foreground: 0 0% 45%;   /* 中灰 - 次要文本 */
+
+    /* 语义化色彩 */
+    --accent: 211 100% 50%;         /* Apple 蓝 - 主要交互色 */
+    --accent-foreground: 0 0% 100%; /* 蓝色上的白字 */
+    --border: 0 0% 91%;             /* 细线边框 - 几乎不可见 */
+    --ring: 211 100% 50%;           /* 焦点状态 */
+
+    /* Apple 半径 - 更圆润 */
+    --radius: 16px;
+    --radius-md: 20px;
+    --radius-lg: 28px;
+    --radius-xl: 32px;
+
+    /* 空间单位 - 基于 8px 的完美网格 */
+    --space-xs: 4px;    /* 0.5 单位 */
+    --space-sm: 8px;    /* 1 单位 */
+    --space-md: 16px;   /* 2 单位 */
+    --space-lg: 24px;   /* 3 单位 */
+    --space-xl: 32px;   /* 4 单位 */
+    --space-2xl: 48px;  /* 6 单位 */
+    --space-3xl: 64px;  /* 8 单位 */
+    --space-4xl: 96px;  /* 12 单位 */
+
+    /* iOS 缓动函数 */
+    --ease-in-out: cubic-bezier(0.4, 0.0, 0.2, 1);
+    --ease-out: cubic-bezier(0.0, 0.0, 0.2, 1);
+    --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  /* 深色模式 */
+  .dark {
+    --background: 0 0% 4%;          /* 极致纯黑 - 网页层底色 */
+    --card-bg: 0 0% 11%;            /* 很深的灰 - 独立卡片 */
+    --foreground: 0 0% 95%;         /* 柔和白色 */
+    --muted: 0 0% 15%;              /* 微妙深色背景 */
+    --muted-foreground: 0 0% 70%;   /* 舒适阅读灰 */
+    --accent: 211 100% 65%;         /* 深色模式 Apple 蓝 */
+    --border: 0 0% 20%;             /* 微妙深色边框 */
+  }
+
   body {
     @apply bg-[hsl(var(--background))] text-[hsl(var(--foreground))] min-h-screen transition-colors duration-300;
     font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -61,76 +69,124 @@
 
 @layer components {
   /* Apple Typography */
+
   .text-apple-display {
-    font-size: clamp(2.25rem, 5vw, 5rem);
-    letter-spacing: -0.025em;
-    @apply font-semibold leading-[1.1];
+    font-size: clamp(1.75rem, 4vw, 3rem);    /* 28px - 48px */
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.025em;                 /* Apple 紧凑字距 */
   }
-
+  
   .text-apple-headline {
-    font-size: clamp(1.75rem, 4vw, 3rem);
+    font-size: clamp(1.25rem, 3vw, 2rem);    /* 20px - 32px */
+    font-weight: 600;
+    line-height: 1.2;
     letter-spacing: -0.02em;
-    @apply font-semibold leading-[1.2];
   }
-
+  
   .text-apple-title {
-    font-size: clamp(1.125rem, 2.5vw, 1.5rem);
+    font-size: clamp(1rem, 2vw, 1.25rem); /* 16px - 20px */
+    font-weight: 600;
+    line-height: 1.3;
     letter-spacing: -0.01em;
-    @apply font-semibold leading-[1.3];
   }
-
+  
   .text-apple-body {
-    font-size: clamp(0.875rem, 2vw, 1.125rem);
-    @apply font-normal leading-relaxed;
+    font-size: clamp(0.8125rem, 1.5vw, 0.9375rem); /* 13px - 15px */
+    font-weight: 400;
+    line-height: 1.5;                         /* 舒适阅读行高 */
   }
-
+  
   .text-apple-caption {
-    font-size: clamp(0.75rem, 1.5vw, 0.875rem);
-    @apply font-normal leading-normal text-[hsl(var(--muted-foreground))];
+    font-size: clamp(0.6875rem, 1.2vw, 0.75rem); /* 11px - 12px */
+    font-weight: 400;
+    line-height: 1.4;
+    color: hsl(var(--muted-foreground));
   }
 
-  /* Solid Cards — 纯色圆润卡片 */
+  /* 基础面板颜色块 - 供背景分隔 */
+  .bg-apple-section-primary {
+    background-color: transparent;
+  }
+
+  .bg-apple-section-secondary {
+    background-color: hsl(var(--muted)/0.3);
+  }
+
+  /* 基础玻璃拟态面板 - 现已退化为实色圆润卡片 */
   .glass {
-    @apply transition-all duration-300;
-    background: hsl(var(--background));
-    border: 1px solid hsl(var(--border));
-    box-shadow: 0 2px 8px 0 rgb(0 0 0 / 0.06), 0 8px 24px 0 rgb(0 0 0 / 0.06);
+    background: hsl(var(--card-bg));
+    border: 1px solid hsl(var(--border) / 0.8);
+    box-shadow: 0 2px 12px -4px rgb(0 0 0 / 0.05), 0 1px 3px rgb(0 0 0 / 0.02);
+    transition: all 0.3s var(--ease-in-out);
   }
 
   .dark .glass {
-    background: hsl(var(--muted));
-    border: 1px solid hsl(var(--border));
-    box-shadow: 0 2px 8px 0 rgb(0 0 0 / 0.30), 0 8px 24px 0 rgb(0 0 0 / 0.25);
+    background: hsl(var(--card-bg));
+    border-color: hsl(var(--border));
+    box-shadow: 0 2px 12px -4px rgb(0 0 0 / 0.3), 0 1px 3px rgb(0 0 0 / 0.2);
   }
 
   .glass:hover {
-    box-shadow: 0 4px 16px 0 rgb(0 0 0 / 0.10), 0 16px 48px 0 rgb(0 0 0 / 0.12);
+    box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.08);
+    transform: translateY(-0.5px);
+  }
+
+  /* 卡片变体 */
+  .glass-card {
+    @apply glass;
+    border-radius: var(--radius-xl);    /* Apple 偏爱的大圆角 32px */
+    padding: 24px;
+    box-shadow: 0 10px 40px -10px rgb(0 0 0 / 0.08), 0 4px 16px -4px rgb(0 0 0 / 0.04);
+  }
+
+  .dark .glass-card {
+    box-shadow: 0 10px 40px -10px rgb(0 0 0 / 0.3), 0 4px 16px -4px rgb(0 0 0 / 0.2);
+  }
+
+  .glass-card:hover {
+    box-shadow: 0 20px 50px -12px rgb(0 0 0 / 0.12), 0 8px 24px -6px rgb(0 0 0 / 0.06);
     transform: translateY(-2px);
   }
 
-  .dark .glass:hover {
-    box-shadow: 0 4px 16px 0 rgb(0 0 0 / 0.40), 0 16px 48px 0 rgb(0 0 0 / 0.40);
+  .dark .glass-card:hover {
+    box-shadow: 0 20px 50px -12px rgb(0 0 0 / 0.5), 0 8px 24px -6px rgb(0 0 0 / 0.3);
   }
 
-  .glass-card {
-    @apply glass p-8;
-    border-radius: var(--radius-lg);
+  /* 选中的卡片状态 */
+  .active-agent-card {
+    background: hsl(var(--card-bg)) !important;
+    box-shadow: 0 8px 40px 0 rgba(59, 130, 246, 0.22), 0 2px 12px 0 rgba(59, 130, 246, 0.12) !important;
+    z-index: 10;
+  }
+  .dark .active-agent-card {
+    background: hsl(var(--card-bg)) !important;
+    box-shadow: 0 8px 40px 0 rgba(59, 130, 246, 0.30), 0 2px 12px 0 rgba(59, 130, 246, 0.18) !important;
   }
 
+  /* 模态框变体 */
   .glass-modal {
     @apply glass overflow-hidden;
     border-radius: var(--radius-xl);
   }
 
+  /* 按钮变体 */
   .glass-button {
-    @apply glass px-4 py-2 text-sm font-medium flex items-center justify-center gap-2;
-    border-radius: var(--radius-md);
+    @apply glass;
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     box-shadow: none !important;
   }
 
   .glass-button:hover {
-    background: hsl(var(--muted));
     transform: translateY(-0.5px);
+    background: hsl(var(--muted));
     box-shadow: none !important;
   }
 
@@ -138,35 +194,42 @@
     background: hsl(var(--muted));
   }
 
+  /* 主要按钮 */
   .glass-button-primary {
     @apply glass-button;
     background: hsl(var(--accent));
     color: hsl(var(--accent-foreground));
-    border-color: hsl(var(--accent));
+    border: 1px solid hsl(var(--accent));
   }
 
   .glass-button-primary:hover {
-    background: hsl(var(--accent) / 0.88);
-    box-shadow: 0 4px 16px 0 hsl(var(--accent) / 0.3) !important;
+    background: hsl(var(--accent) / 0.9);
     transform: translateY(-0.5px);
-  }
-
-  /* Active State for Agent Cards */
-  .card-active {
-    @apply ring-2 ring-[hsl(var(--accent))] border-transparent !important;
-    box-shadow: 0 12px 48px 0 hsl(var(--accent)/0.2) !important;
+    box-shadow: 0 4px 12px 0 hsl(var(--accent) / 0.3) !important;
   }
 }
 
 /* Animations */
 @keyframes apple-fade-in {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { 
+    opacity: 0; 
+    transform: translateY(8px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
 }
 
 @keyframes apple-scale-in {
-  from { opacity: 0; transform: scale(0.96); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes apple-shimmer {
@@ -185,11 +248,11 @@
 }
 
 .animate-apple-fade-in {
-  animation: apple-fade-in 0.8s var(--ease-out) forwards;
+  animation: apple-fade-in 0.6s var(--ease-out) forwards;
 }
 
 .animate-apple-scale-in {
-  animation: apple-scale-in 0.5s var(--ease-out) forwards;
+  animation: apple-scale-in 0.4s var(--ease-out) forwards;
 }
 
 /* Custom select arrow */
@@ -213,3 +276,4 @@
 .scrollbar-thin::-webkit-scrollbar-thumb:hover { 
   background: hsl(var(--muted-foreground)/0.4); 
 }
+
