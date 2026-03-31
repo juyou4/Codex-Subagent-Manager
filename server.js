@@ -244,6 +244,10 @@ function parseTomlFile(filePath) {
   return TOML.parse(readTextFile(filePath));
 }
 
+function parseTomlContent(content) {
+  return TOML.parse(stripBom(content));
+}
+
 function tryParseTomlFile(filePath, fallback = null) {
   try {
     return parseTomlFile(filePath);
@@ -256,6 +260,90 @@ function tryParseTomlFile(filePath, fallback = null) {
 function listTomlFiles(dir) {
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir).filter((file) => file.endsWith('.toml'));
+}
+
+function extractImportCandidates(rawContent) {
+  const normalizedContent = stripBom(typeof rawContent === 'string' ? rawContent : '').trim();
+  if (!normalizedContent) return [];
+
+  const candidates = [];
+  const seen = new Set();
+  const addCandidate = (candidate, source) => {
+    const normalizedCandidate = stripBom(typeof candidate === 'string' ? candidate : '').trim();
+    if (!normalizedCandidate || seen.has(normalizedCandidate)) return;
+    seen.add(normalizedCandidate);
+    candidates.push({ content: normalizedCandidate, source });
+  };
+
+  addCandidate(normalizedContent, 'raw');
+
+  const fencedBlockPattern = /```([^\r\n`]*)\r?\n([\s\S]*?)```/g;
+  let match;
+  while ((match = fencedBlockPattern.exec(normalizedContent)) !== null) {
+    const label = match[1].trim().toLowerCase();
+    const source = label ? `code:${label}` : 'code';
+    addCandidate(match[2], source);
+  }
+
+  return candidates;
+}
+
+function isRecognizedAgentConfig(config) {
+  if (!config || typeof config !== 'object' || Array.isArray(config)) return false;
+  const supportedKeys = new Set([
+    'name',
+    'description',
+    'developer_instructions',
+    'model',
+    'model_provider',
+    'model_reasoning_effort',
+    'sandbox_mode',
+    'nickname_candidates',
+    'mcp_servers',
+  ]);
+
+  return Object.keys(config).some((key) => supportedKeys.has(key));
+}
+
+function parseImportedAgentContent(content) {
+  const candidates = extractImportCandidates(content);
+  if (candidates.length === 0) {
+    throw new Error('导入内容为空');
+  }
+
+  const errors = [];
+  for (const candidate of candidates) {
+    try {
+      const parsed = parseTomlContent(candidate.content);
+      if (!isRecognizedAgentConfig(parsed)) {
+        errors.push(`${candidate.source}: 缺少可识别的 agent 字段`);
+        continue;
+      }
+      return { parsed, source: candidate.source };
+    } catch (err) {
+      errors.push(`${candidate.source}: ${err.message}`);
+    }
+  }
+
+  throw new Error(`未能识别有效的 Agent TOML 配置。${errors[0] ? `首个错误：${errors[0]}` : ''}`);
+}
+
+function normalizeImportedAgentConfig(config = {}) {
+  return {
+    name: toTrimmedStringOrNull(config.name) || '',
+    description: typeof config.description === 'string' ? config.description : '',
+    developer_instructions: typeof config.developer_instructions === 'string' ? config.developer_instructions : '',
+    model: toTrimmedStringOrNull(config.model) || '',
+    model_provider: toTrimmedStringOrNull(config.model_provider) || '',
+    model_reasoning_effort: toTrimmedStringOrNull(config.model_reasoning_effort) || '',
+    sandbox_mode: toTrimmedStringOrNull(config.sandbox_mode) || '',
+    nickname_candidates: Array.isArray(config.nickname_candidates)
+      ? config.nickname_candidates.filter((item) => typeof item === 'string')
+      : (typeof config.nickname_candidates === 'string' ? [config.nickname_candidates] : []),
+    mcp_servers: config.mcp_servers && typeof config.mcp_servers === 'object' && !Array.isArray(config.mcp_servers)
+      ? config.mcp_servers
+      : {},
+  };
 }
 
 function cloneValue(value) {
@@ -633,6 +721,25 @@ app.delete('/api/config/legacy-agent', (req, res) => {
     res.json({ ok: true, removed });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/agents/import-parse — 从粘贴文本或文件内容中识别 agent TOML
+app.post('/api/agents/import-parse', (req, res) => {
+  const { content } = req.body || {};
+  if (typeof content !== 'string' || !content.trim()) {
+    return res.status(400).json({ error: 'content is required' });
+  }
+
+  try {
+    const { parsed, source } = parseImportedAgentContent(content);
+    res.json({
+      ok: true,
+      source,
+      agent: normalizeImportedAgentConfig(parsed),
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 
